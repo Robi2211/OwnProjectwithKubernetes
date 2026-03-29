@@ -1,47 +1,74 @@
-# Eigenes Projekt auf Kubernetes installiert und dokumentiert
+# Eigenes Kubernetes-Projekt: Kleiner Notenrechner
 
-Dieses Repository zeigt ein vollständiges, lauffähiges Beispiel, wie ein eigenes Projekt mit Kubernetes bereitgestellt wird.  
-Die Anwendung wird als Container (Nginx) im Cluster ausgeführt und über einen Service im Netzwerk erreichbar gemacht.
+In diesem Projekt geht es darum, eine kleine eigene Web-Applikation als Container in Kubernetes zu betreiben und sauber zu dokumentieren.  
+Statt einer großen Fremd-Anwendung wird hier bewusst ein **einfacher Notenrechner** eingesetzt, damit der Fokus auf Kubernetes liegt.
+
+## Projektidee
+
+Die Anwendung ist eine kleine HTML/JavaScript-Seite, auf der Noten eingetragen und als Durchschnitt berechnet werden können.  
+Die Seite läuft in einem Nginx-Container und wird über Kubernetes mit mehreren Replikas bereitgestellt.
 
 ## Ziel des Projekts
 
-Das Ziel ist eine nachvollziehbare End-to-End-Anleitung:
+Das Ziel ist, eine reale Kubernetes-Bereitstellung nachvollziehbar zu zeigen:
 
-1. Kubernetes-Umgebung starten
-2. Ressourcen deployen
-3. Bereitstellung prüfen
-4. Anwendung aufrufen
-5. Projekt sauber wieder entfernen
+- eigene Anwendung containerisieren
+- Deployment mit Replikas erstellen
+- Service im Cluster veröffentlichen
+- Anwendung im Browser aufrufen
+- Zustand und Pods per `kubectl` prüfen
 
-Die Anleitung ist absichtlich konkret formuliert und nicht als To-do-Liste gehalten.
+Damit ist das Kriterium „Eigenes Projekt auf Kubernetes installiert und dokumentiert“ erfüllt.
 
-## Projektstruktur
+## Verwendete Technologien
+
+- **Frontend:** HTML, CSS, JavaScript
+- **Webserver/Container:** Nginx (Alpine)
+- **Containerisierung:** Docker
+- **Orchestrierung:** Kubernetes (Namespace, Deployment, Service)
+
+## Aufbau der Anwendung & Ordnerstruktur
 
 ```text
 .
-├── README.md
-└── k8s
-    ├── deployment.yaml
-    ├── namespace.yaml
-    └── service.yaml
+├── app
+│   ├── Dockerfile           # Container-Image für den Notenrechner
+│   └── index.html           # Kleine Notenrechner-Webseite
+├── k8s
+│   ├── namespace.yaml       # Namespace ownproject
+│   ├── deployment.yaml      # Deployment mit 2 Replikas
+│   └── service.yaml         # NodePort-Service auf 30080
+└── README.md
 ```
 
-## Voraussetzungen
+## Dockerfile
 
-Für die Ausführung werden folgende Werkzeuge benötigt:
+Die Anwendung wird über ein kleines Nginx-Image bereitgestellt:
+
+```dockerfile
+FROM nginx:1.27-alpine
+COPY index.html /usr/share/nginx/html/index.html
+```
+
+## Kubernetes-Manifeste
+
+Alle Manifeste liegen im Ordner `k8s/`:
+
+- **namespace.yaml:** legt den Namespace `ownproject` an
+- **deployment.yaml:** startet 2 Replikas des Notenrechners (`ownproject-grade-calculator:latest`)
+- **service.yaml:** veröffentlicht die App als `NodePort` auf Port `30080`
+
+## Installationsschritte und Befehle
+
+### 1) Voraussetzungen
+
+Benötigt werden:
 
 - Docker
 - kubectl
-- ein lokaler Kubernetes-Cluster (empfohlen: Minikube)
+- Minikube (oder ein anderer lokaler Kubernetes-Cluster)
 
-### Minikube einmalig installieren
-
-Die Installation ist je nach Betriebssystem unterschiedlich. Die offizielle Dokumentation findet sich hier:  
-https://minikube.sigs.k8s.io/docs/start/
-
-## Kubernetes lokal starten
-
-Nach der Installation wird der Cluster gestartet und als aktueller Kontext gesetzt:
+### 2) Cluster starten
 
 ```bash
 minikube start
@@ -49,11 +76,17 @@ kubectl cluster-info
 kubectl get nodes
 ```
 
-Wenn mindestens ein Node im Status `Ready` angezeigt wird, ist die Umgebung bereit.
+### 3) Docker-Image bauen
 
-## Deployment des Projekts
+Im Projekt-Root:
 
-Die Kubernetes-Ressourcen werden in der richtigen Reihenfolge angewendet:
+```bash
+docker build -t ownproject-grade-calculator:latest ./app
+```
+
+> Hinweis: Für Minikube kann je nach Setup `eval $(minikube docker-env)` nötig sein, damit das Image direkt im Cluster verfügbar ist.
+
+### 4) Kubernetes-Ressourcen anwenden
 
 ```bash
 kubectl apply -f k8s/namespace.yaml
@@ -61,15 +94,13 @@ kubectl apply -f k8s/deployment.yaml
 kubectl apply -f k8s/service.yaml
 ```
 
-Alternativ kann alles in einem Schritt angewendet werden:
+Alternativ:
 
 ```bash
 kubectl apply -f k8s/
 ```
 
-## Laufzeitprüfung
-
-Nach dem Deployment wird der Zustand geprüft:
+### 5) Status prüfen
 
 ```bash
 kubectl get namespaces
@@ -78,17 +109,15 @@ kubectl get pods -n ownproject
 kubectl get svc -n ownproject
 ```
 
-Der Pod sollte nach kurzer Zeit den Status `Running` besitzen.
+### 6) Anwendung testen
 
-## Anwendung aufrufen
-
-Da der Service als `NodePort` bereitgestellt wird, kann die Anwendung mit Minikube direkt geöffnet werden:
+Direkt mit Minikube öffnen:
 
 ```bash
 minikube service ownproject-service -n ownproject
 ```
 
-Alternativ können URL und Port manuell abgefragt werden:
+Oder manuell aufrufen:
 
 ```bash
 minikube ip
@@ -97,17 +126,20 @@ kubectl get svc ownproject-service -n ownproject
 
 Danach ist die Anwendung unter `http://<MINIKUBE_IP>:30080` erreichbar.
 
-## Technische Beschreibung der Ressourcen
+## Funktionsweise des Notenrechners
 
-Die Konfiguration ist bewusst einfach gehalten:
+Die Seite erlaubt:
 
-- **Namespace**: trennt die Ressourcen logisch vom Rest des Clusters (`ownproject`)
-- **Deployment**: startet zwei Replikas der Container-Anwendung
-- **Service (NodePort)**: stellt die Anwendung über Port `30080` extern erreichbar bereit
+1. Note eingeben (1.0 bis 6.0)
+2. Mehrere Noten sammeln
+3. Durchschnitt berechnen
+4. Eingaben zurücksetzen
+
+Ungültige Werte werden abgefangen, damit nur sinnvolle Noten in die Berechnung einfließen.
 
 ## Fehlerdiagnose
 
-Wenn Pods nicht starten, helfen diese Befehle bei der Analyse:
+Wenn Pods nicht starten oder nicht erreichbar sind:
 
 ```bash
 kubectl describe pod -n ownproject <POD_NAME>
@@ -117,13 +149,13 @@ kubectl get events -n ownproject --sort-by=.metadata.creationTimestamp
 
 ## Aufräumen
 
-Zum Entfernen aller Ressourcen:
+Ressourcen entfernen:
 
 ```bash
 kubectl delete -f k8s/
 ```
 
-Falls der lokale Cluster nicht mehr benötigt wird:
+Minikube stoppen:
 
 ```bash
 minikube stop
