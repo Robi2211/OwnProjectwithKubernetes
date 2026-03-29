@@ -17,6 +17,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: nginx:1.27-alpine
+          image: ownproject-grade-calculator:latest
+          imagePullPolicy: Never
           ports:
             - containerPort: 80
