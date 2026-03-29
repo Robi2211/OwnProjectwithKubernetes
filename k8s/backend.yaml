@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lms-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: lms-backend
+  template:
+    metadata:
+      labels:
+        app: lms-backend
+    spec:
+      containers:
+        - name: backend
+          image: lms-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          env:
+            - name: PORT
+              value: "5000"
+            - name: MONGO_URI
+              value: mongodb://mongo-svc:27017/lms
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lms-backend
+spec:
+  selector:
+    app: lms-backend
+  ports:
+    - port: 5000
+      targetPort: 5000
+  type: ClusterIP

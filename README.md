@@ -1,162 +1,175 @@
-# Eigenes Kubernetes-Projekt: Kleiner Notenrechner
+# Eigenes Projekt auf Kubernetes: Notenrechner mit Frontend, Backend und MongoDB
 
-In diesem Projekt geht es darum, eine kleine eigene Web-Applikation als Container in Kubernetes zu betreiben und sauber zu dokumentieren.  
-Statt einer großen Fremd-Anwendung wird hier bewusst ein **einfacher Notenrechner** eingesetzt, damit der Fokus auf Kubernetes liegt.
+## 1. Projektidee
+Dieses Projekt ist eine vollständige, containerisierte Anwendung mit:
 
-## Projektidee
+- **Frontend** (Notenrechner UI + Load-Balancer-Visualisierung)
+- **Backend** (Node.js/Express API)
+- **Datenbank** (MongoDB)
 
-Die Anwendung ist eine kleine HTML/JavaScript-Seite, auf der Noten eingetragen und als Durchschnitt berechnet werden können.  
-Die Seite läuft in einem Nginx-Container und wird über Kubernetes mit mehreren Replikas bereitgestellt.
+Die Anwendung wurde gezielt für den Kubernetes-Betrieb aufgebaut und enthält zusätzlich eine visuelle Demonstration, dass Requests über einen Kubernetes-Service auf mehrere Backend-Pods verteilt werden.
 
 ## Ziel des Projekts
-
-Das Ziel ist, eine reale Kubernetes-Bereitstellung nachvollziehbar zu zeigen:
-
-- eigene Anwendung containerisieren
-- Deployment mit Replikas erstellen
-- Service im Cluster veröffentlichen
-- Anwendung im Browser aufrufen
-- Zustand und Pods per `kubectl` prüfen
-
-Damit ist das Kriterium „Eigenes Projekt auf Kubernetes installiert und dokumentiert“ erfüllt.
+Ziel ist es, eine reale, mehrschichtige Anwendung (Frontend, API-Backend, Datenbank) auf Kubernetes zu deployen und nachvollziehbar zu dokumentieren. Zusätzlich zeigt das Projekt grafisch, dass mehrere Pods aktiv sind und Lastverteilung funktioniert.
 
 ## Verwendete Technologien
+- **Frontend:** HTML, CSS, JavaScript, Nginx
+- **Backend:** Node.js, Express, Mongoose
+- **Datenbank:** MongoDB
+- **Infrastruktur:** Docker, Kubernetes (Deployments, Services)
 
-- **Frontend:** HTML, CSS, JavaScript
-- **Webserver/Container:** Nginx (Alpine)
-- **Containerisierung:** Docker
-- **Orchestrierung:** Kubernetes (Namespace, Deployment, Service)
+---
 
-## Aufbau der Anwendung & Ordnerstruktur
+## 2. Aufbau der Anwendung & Ordnerstruktur
 
 ```text
 .
-├── app
-│   ├── Dockerfile           # Container-Image für den Notenrechner
-│   └── index.html           # Kleine Notenrechner-Webseite
-├── k8s
-│   ├── namespace.yaml       # Namespace ownproject
-│   ├── deployment.yaml      # Deployment mit 2 Replikas
-│   └── service.yaml         # NodePort-Service auf 30080
+├── front-end/              # Frontend, läuft mit Nginx (Port 80)
+│   ├── public/pods.html    # Visualisierung für den Load-Balancer-Test
+│   ├── Dockerfile          # Docker-Image für das Frontend
+│   ├── index.html          # Hauptseite (Notenrechner)
+│   ├── nginx.conf          # Proxy-Config, leitet /api/ an Backend weiter
+│   └── package.json        # Build-Skript für statische Auslieferung
+├── back-end/               # Node.js Express API (Port 5000)
+│   ├── server.js           # API inklusive /api/pod-info Endpoint
+│   ├── Dockerfile          # Docker-Image für das Backend
+│   └── package.json        # Backend-Abhängigkeiten
+├── k8s/                    # Kubernetes-Manifeste
+│   ├── backend.yaml        # Backend Deployment (3 Replikas) + Service
+│   ├── frontend.yaml       # Frontend Deployment (3 Replikas) + LoadBalancer Service
+│   └── mongo.yaml          # MongoDB Deployment (1 Replika) + ClusterIP Service
 └── README.md
 ```
 
-## Dockerfile
+---
 
-Die Anwendung wird über ein kleines Nginx-Image bereitgestellt:
+## 3. Dockerfiles
 
+### Backend-Dockerfile (`back-end/Dockerfile`)
 ```dockerfile
-FROM nginx:1.27-alpine
-COPY index.html /usr/share/nginx/html/index.html
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5000
+CMD ["node", "server.js"]
 ```
 
-## Kubernetes-Manifeste
+### Frontend-Dockerfile (`front-end/Dockerfile`)
+```dockerfile
+FROM node:18-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
 
-Alle Manifeste liegen im Ordner `k8s/`:
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
 
-- **namespace.yaml:** legt den Namespace `ownproject` an
-- **deployment.yaml:** startet 2 Replikas des Notenrechners (`ownproject-grade-calculator:latest`)
-- **service.yaml:** veröffentlicht die App als `NodePort` auf Port `30080`
+---
 
-## Installationsschritte und Befehle
+## 4. Kubernetes YAML-Dateien
+Alle Manifeste liegen in `k8s/`.
 
-### 1) Voraussetzungen
+### `k8s/mongo.yaml`
+- **Deployment:** Startet genau 1 Replika (`mongo:7`)
+- **Service:** `mongo-svc` als `ClusterIP` auf Port `27017`
 
-Benötigt werden:
+### `k8s/backend.yaml`
+- **Deployment:** `replicas: 3` für die Node.js API
+- **Environment:** `MONGO_URI=mongodb://mongo-svc:27017/lms`
+- **Service:** `lms-backend` als `ClusterIP` auf Port `5000`
 
-- Docker
-- kubectl
-- Minikube (oder ein anderer lokaler Kubernetes-Cluster)
+### `k8s/frontend.yaml`
+- **Deployment:** `replicas: 3` für das Frontend (Nginx)
+- **Service:** `lms-frontend` als `LoadBalancer` auf Port `80`
 
-### 2) Cluster starten
+---
 
+## 5. Installationsschritte und verwendete Befehle
+
+### 1) Docker Images bauen
 ```bash
-minikube start
-kubectl cluster-info
-kubectl get nodes
+cd front-end
+docker build -t lms-frontend:latest .
+cd ../back-end
+docker build -t lms-backend:latest .
+cd ..
 ```
 
-### 3) Docker-Image bauen
-
-Im Projekt-Root:
-
+### 2) Kubernetes Ressourcen anwenden
 ```bash
-docker build -t ownproject-grade-calculator:latest ./app
+kubectl apply -f k8s/mongo.yaml
+kubectl apply -f k8s/backend.yaml
+kubectl apply -f k8s/frontend.yaml
 ```
 
-> Hinweis: Für Minikube kann je nach Setup `eval $(minikube docker-env)` nötig sein, damit das Image direkt im Cluster verfügbar ist.
-
-### 4) Kubernetes-Ressourcen anwenden
-
+### 3) Status prüfen
 ```bash
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
+kubectl get deployments
+kubectl get pods -o wide
+kubectl get svc
 ```
 
-Alternativ:
-
+### 4) Testen
+Falls lokal keine External-IP bereitgestellt wird:
 ```bash
-kubectl apply -f k8s/
+kubectl port-forward svc/lms-frontend 8080:80
 ```
 
-### 5) Status prüfen
+Danach im Browser:
+- Hauptseite: `http://localhost:8080/`
+- Load-Balancer-Seite: `http://localhost:8080/pods.html`
 
+---
+
+## 6. Überprüfung: Laufen Replikas & Load Balancing?
+
+Erwartete Kontrolle per Deployments/Pods:
 ```bash
-kubectl get namespaces
-kubectl get deployments -n ownproject
-kubectl get pods -n ownproject
-kubectl get svc -n ownproject
+kubectl get deployments
+kubectl get pods
 ```
 
-### 6) Anwendung testen
-
-Direkt mit Minikube öffnen:
-
+Der Nachweis für Backend-Load-Balancing erfolgt über den Pod-Info-Endpoint:
 ```bash
-minikube service ownproject-service -n ownproject
+for i in 1 2 3; do curl -s http://127.0.0.1:8080/api/pod-info; echo ""; sleep 1; done
 ```
 
-Oder manuell aufrufen:
-
-```bash
-minikube ip
-kubectl get svc ownproject-service -n ownproject
+Beispielausgabe:
+```json
+{"podName":"lms-backend-79b8cd466b-ncvnl","timestamp":"2026-03-25T11:34:24.157Z"}
+{"podName":"lms-backend-79b8cd466b-ncvnl","timestamp":"2026-03-25T11:34:25.239Z"}
+{"podName":"lms-backend-79b8cd466b-5wcnv","timestamp":"2026-03-25T11:34:26.286Z"}
 ```
 
-Danach ist die Anwendung unter `http://<MINIKUBE_IP>:30080` erreichbar.
+Wenn unterschiedliche `podName`-Werte erscheinen, verteilt Kubernetes die Requests auf mehrere Backend-Replikas.
 
-## Funktionsweise des Notenrechners
+---
 
-Die Seite erlaubt:
+## 7. Visualisierung (Load-Balancing-Test Seite)
 
-1. Note eingeben (1.0 bis 6.0)
-2. Mehrere Noten sammeln
-3. Durchschnitt berechnen
-4. Eingaben zurücksetzen
+Unter `http://localhost:8080/pods.html` befindet sich ein Dashboard.
 
-Ungültige Werte werden abgefangen, damit nur sinnvolle Noten in die Berechnung einfließen.
+- Mit **"Auto request every 1s"** sendet der Browser regelmäßig Requests an `/api/pod-info`.
+- Nginx im Frontend leitet `/api/` transparent an den Kubernetes-Service `lms-backend` weiter.
+- Der Service verteilt die Requests auf die Backend-Pods.
+- Der antwortende Pod wird als Button angezeigt und kurz pulsierend hervorgehoben.
 
-## Fehlerdiagnose
+So kann die Lastverteilung auch visuell einfach nachvollzogen werden.
 
-Wenn Pods nicht starten oder nicht erreichbar sind:
+---
 
-```bash
-kubectl describe pod -n ownproject <POD_NAME>
-kubectl logs -n ownproject <POD_NAME>
-kubectl get events -n ownproject --sort-by=.metadata.creationTimestamp
-```
+## Mögliche Probleme und Lösungen
 
-## Aufräumen
-
-Ressourcen entfernen:
-
-```bash
-kubectl delete -f k8s/
-```
-
-Minikube stoppen:
-
-```bash
-minikube stop
-```
+- **Backend startet neu (CrashLoopBackOff):** Kann auftreten, wenn MongoDB beim ersten Start noch nicht bereit ist. Kubernetes startet die Pods automatisch neu.
+- **Keine External-IP für LoadBalancer:** Bei lokalen Clustern (Docker Desktop/Minikube) ist oft Port-Forwarding der einfachste Weg:
+  ```bash
+  kubectl port-forward svc/lms-frontend 8080:80
+  ```

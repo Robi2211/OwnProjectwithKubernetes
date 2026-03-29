@@ -5,66 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Notenrechner</title>
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f4f6f8;
-      color: #1f2937;
-    }
-    .container {
-      max-width: 700px;
-      margin: 40px auto;
-      background: #ffffff;
-      padding: 24px;
-      border-radius: 10px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-    }
-    h1 {
-      margin-top: 0;
-      font-size: 28px;
-    }
-    p {
-      color: #4b5563;
-    }
-    .row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    input {
-      flex: 1;
-      padding: 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 16px;
-    }
-    button {
-      border: none;
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 14px;
-      cursor: pointer;
-      background: #2563eb;
-      color: white;
-    }
-    button.secondary {
-      background: #6b7280;
-    }
-    ul {
-      padding-left: 18px;
-    }
-    .result {
-      margin-top: 16px;
-      padding: 14px;
-      border-radius: 8px;
-      background: #eef2ff;
-      font-weight: bold;
-    }
-    .hint {
-      font-size: 13px;
-      color: #6b7280;
-      margin-top: 6px;
-    }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f4f6f8; color: #1f2937; }
+    .container { max-width: 700px; margin: 40px auto; background: #ffffff; padding: 24px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08); }
+    h1 { margin-top: 0; font-size: 28px; }
+    p { color: #4b5563; }
+    .row { display: flex; gap: 8px; margin-bottom: 12px; }
+    input { flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 16px; }
+    button { border: none; border-radius: 8px; padding: 10px 14px; font-size: 14px; cursor: pointer; background: #2563eb; color: white; }
+    button.secondary { background: #6b7280; }
+    ul { padding-left: 18px; }
+    .result { margin-top: 16px; padding: 14px; border-radius: 8px; background: #eef2ff; font-weight: bold; }
+    .hint { font-size: 13px; color: #6b7280; margin-top: 6px; }
+    .link { margin-top: 16px; display: inline-block; }
   </style>
 </head>
 <body>
@@ -83,6 +35,7 @@
     <h3>Aktuelle Noten</h3>
     <ul id="gradeList"></ul>
     <div id="result" class="result">Noch keine Berechnung durchgeführt.</div>
+    <a class="link" href="/pods.html">Zur Load-Balancer-Visualisierung</a>
   </div>
 
   <script>

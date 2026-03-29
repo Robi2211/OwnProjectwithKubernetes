@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Load-Balancer Visualisierung</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f7fb; margin: 0; color: #1f2937; }
+    .wrap { max-width: 900px; margin: 30px auto; background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+    h1 { margin-top: 0; }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    button { border: none; border-radius: 8px; padding: 10px 14px; background: #2563eb; color: #fff; cursor: pointer; }
+    button.secondary { background: #6b7280; }
+    .pods { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .pod { padding: 10px 14px; border-radius: 999px; background: #e5e7eb; color: #111827; font-weight: 700; }
+    .pod.active { background: #16a34a; color: #fff; animation: pulse 0.8s ease-in-out; }
+    pre { background: #111827; color: #e5e7eb; padding: 12px; border-radius: 8px; overflow: auto; min-height: 70px; }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Backend Load-Balancer Test</h1>
+    <p>Diese Seite sendet Requests an <code>/api/pod-info</code> und zeigt den antwortenden Pod an.</p>
+    <div class="controls">
+      <button id="singleBtn" type="button">Single request</button>
+      <button id="autoBtn" type="button">Auto request every 1s</button>
+      <button id="stopBtn" class="secondary" type="button">Stop</button>
+      <a href="/">Zur Hauptseite</a>
+    </div>
+    <pre id="log"></pre>
+    <div id="pods" class="pods"></div>
+  </div>
+
+  <script>
+    const podsBox = document.getElementById("pods");
+    const logBox = document.getElementById("log");
+    const pods = new Map();
+    let timer = null;
+
+    function activatePod(podName) {
+      if (!pods.has(podName)) {
+        const el = document.createElement("div");
+        el.className = "pod";
+        el.textContent = podName;
+        pods.set(podName, el);
+        podsBox.appendChild(el);
+      }
+      pods.forEach((el) => el.classList.remove("active"));
+      const active = pods.get(podName);
+      active.classList.add("active");
+      setTimeout(() => active.classList.remove("active"), 800);
+    }
+
+    async function requestPodInfo() {
+      try {
+        const response = await fetch("/api/pod-info");
+        const data = await response.json();
+        activatePod(data.podName || "unknown-pod");
+        logBox.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        logBox.textContent = `Fehler: ${error.message}`;
+      }
+    }
+
+    document.getElementById("singleBtn").addEventListener("click", requestPodInfo);
+    document.getElementById("autoBtn").addEventListener("click", () => {
+      if (timer) return;
+      requestPodInfo();
+      timer = setInterval(requestPodInfo, 1000);
+    });
+    document.getElementById("stopBtn").addEventListener("click", () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    });
+  </script>
+</body>
+</html>
