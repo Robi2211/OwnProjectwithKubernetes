@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || "mongodb://mongo-svc:27017/ownproject";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://mongo-svc:27017/lms";
 
 mongoose
   .connect(MONGO_URI)
