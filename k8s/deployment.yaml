@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ownproject-app
+  namespace: ownproject
+  labels:
+    app: ownproject-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ownproject-app
+  template:
+    metadata:
+      labels:
+        app: ownproject-app
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
